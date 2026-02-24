@@ -1,0 +1,4 @@
+add_subdirectory(Foo)
+add_subdirectory(DateCountCalculator)
+add_subdirectory(Market)
+add_subdirectory(Instruments)

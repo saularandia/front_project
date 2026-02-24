@@ -1,0 +1,1 @@
+boost_test_project(NAME test_date_count_calculator DEPS date_count_calculator)

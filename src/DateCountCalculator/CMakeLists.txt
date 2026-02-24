@@ -1,0 +1,2 @@
+add_subdirectory(tests)
+add_library(date_count_calculator INTERFACE)
