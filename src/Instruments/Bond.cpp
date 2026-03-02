@@ -1,5 +1,4 @@
 #include <Instruments/Bond.h>
-#include <Instruments/GoalSeeker.h>
 
 #include <cmath>
 #include <stdexcept>
@@ -62,5 +61,22 @@ double Bond::irr_from_price(double market_price, double initial_guess) const
         return (f(y + h) - f(y - h)) / (2.0 * h);
     };
 
-    return GoalSeeker::newton_raphson(f, df, initial_guess);
+    const double tol = 1e-12;
+    const int max_iter = 50;
+
+    double x = initial_guess;
+    for (int iteration = 0; iteration < max_iter; ++iteration)
+    {
+        const double fx = f(x);
+        if (std::abs(fx) < tol)
+            return x;
+
+        const double dfx = df(x);
+        if (dfx == 0.0)
+            throw std::runtime_error("Bond::irr_from_price: zero derivative in Newton-Raphson");
+
+        x -= fx / dfx;
+    }
+
+    throw std::runtime_error("Bond::irr_from_price: Newton-Raphson did not converge");
 }

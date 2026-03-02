@@ -3,9 +3,12 @@
 #include <boost/math/tools/roots.hpp>
 
 #include <DateCountCalculator/day_count_calculator.h>
+#include <Instruments/Bootstrapping.h>
 #include <Instruments/Bond.h>
+#include <Instruments/Deposit.h>
 #include <Instruments/Factory.h>
-#include <Instruments/GoalSeeker.h>
+#include <Instruments/FixedLeg.h>
+#include <Instruments/FloatingLeg.h>
 #include <Instruments/InstrumentDescription.h>
 #include <Instruments/Swap.h>
 #include <Market/Index.h>
@@ -41,6 +44,85 @@ boost::gregorian::date parse_ddmmyy(const std::string& text)
 }
 
 BOOST_AUTO_TEST_SUITE(instruments_suite)
+
+BOOST_AUTO_TEST_CASE(flow_amounts_for_fixed_and_floating_legs)
+{
+    using Date = boost::gregorian::date;
+
+    const Date val = parse_ddmmyy("01/04/16");
+    const Date d6m = parse_ddmmyy("03/10/16");
+
+    auto curve = std::make_shared<ZeroCouponCurve>(val, std::vector<Date>{d6m}, std::vector<double>{0.05});
+    auto index = std::make_shared<Index>(curve, 2);
+
+    const std::vector<FixedLeg::Period> fixed_schedule = {
+        FixedLeg::Period{val, d6m}
+    };
+
+    const std::vector<FloatingLeg::Period> floating_schedule = {
+        FloatingLeg::Period{val, d6m}
+    };
+
+    const double notional = 100.0;
+    const double fixed_rate = 0.05;
+    const double fixing = 0.048;
+    const double spread = 0.001;
+
+    Actual_360 dcc;
+    const double tau = dcc(val, d6m);
+
+    FixedLeg fixed_leg(notional, fixed_rate, fixed_schedule, curve);
+    const auto fixed_cfs = fixed_leg.cashflows();
+
+    BOOST_TEST(fixed_cfs.size() == 1u);
+    BOOST_TEST(fixed_cfs[0].pay_date == d6m);
+    BOOST_TEST(fixed_cfs[0].amount == notional * fixed_rate * tau, boost::test_tools::tolerance(1e-12));
+
+    FloatingLeg floating_leg(notional, index, floating_schedule, curve, spread);
+    floating_leg.set_fixing(val, fixing);
+    const auto floating_cfs = floating_leg.cashflows();
+
+    BOOST_TEST(floating_cfs.size() == 1u);
+    BOOST_TEST(floating_cfs[0].pay_date == d6m);
+    BOOST_TEST(floating_cfs[0].amount == notional * (fixing + spread) * tau, boost::test_tools::tolerance(1e-12));
+}
+
+BOOST_AUTO_TEST_CASE(discounting_of_leg_cashflows)
+{
+    using Date = boost::gregorian::date;
+
+    const Date val = parse_ddmmyy("01/04/16");
+    const Date d6m = parse_ddmmyy("03/10/16");
+
+    auto curve = std::make_shared<ZeroCouponCurve>(val, std::vector<Date>{d6m}, std::vector<double>{0.05});
+    auto index = std::make_shared<Index>(curve, 2);
+
+    const std::vector<FixedLeg::Period> fixed_schedule = {
+        FixedLeg::Period{val, d6m}
+    };
+
+    const std::vector<FloatingLeg::Period> floating_schedule = {
+        FloatingLeg::Period{val, d6m}
+    };
+
+    const double notional = 100.0;
+    const double fixed_rate = 0.05;
+    const double fixing = 0.048;
+    const double spread = 0.001;
+
+    Actual_360 dcc;
+    const double tau = dcc(val, d6m);
+    const double df = curve->discount_factor(d6m);
+
+    FixedLeg fixed_leg(notional, fixed_rate, fixed_schedule, curve);
+    const double expected_fixed_pv = (notional * fixed_rate * tau) * df;
+    BOOST_TEST(fixed_leg.price() == expected_fixed_pv, boost::test_tools::tolerance(1e-12));
+
+    FloatingLeg floating_leg(notional, index, floating_schedule, curve, spread);
+    floating_leg.set_fixing(val, fixing);
+    const double expected_floating_pv = (notional * (fixing + spread) * tau) * df;
+    BOOST_TEST(floating_leg.price() == expected_floating_pv, boost::test_tools::tolerance(1e-12));
+}
 
 BOOST_AUTO_TEST_CASE(swap_example_from_slides)
 {
@@ -127,61 +209,6 @@ BOOST_AUTO_TEST_CASE(bond_irr_roundtrip)
     BOOST_TEST(irr == y, boost::test_tools::tolerance(1e-8));
 }
 
-BOOST_AUTO_TEST_CASE(bond_irr_two_year_compare_with_boost_roots)
-{
-    const std::vector<double> times = {0.5, 1.0, 1.5, 2.0};
-    const std::vector<double> zc_rates = {0.050, 0.058, 0.064, 0.068};
-    const std::vector<double> cashflows = {3.0, 3.0, 3.0, 103.0};
-
-    const double market_pv = 98.39;
-
-    double pv_from_curve = 0.0;
-    for (size_t i = 0; i < times.size(); ++i)
-    {
-        pv_from_curve += cashflows[i] * std::exp(-zc_rates[i] * times[i]);
-    }
-    BOOST_TEST(pv_from_curve == market_pv, boost::test_tools::tolerance(5e-4));
-
-    auto f = [&](double y)
-    {
-        double pv = 0.0;
-        for (size_t i = 0; i < times.size(); ++i)
-        {
-            pv += cashflows[i] * std::exp(-y * times[i]);
-        }
-        return pv - market_pv;
-    };
-
-    auto df = [&](double y)
-    {
-        double derivative = 0.0;
-        for (size_t i = 0; i < times.size(); ++i)
-        {
-            derivative += -times[i] * cashflows[i] * std::exp(-y * times[i]);
-        }
-        return derivative;
-    };
-
-    const double irr_newton = GoalSeeker::newton_raphson(f, df, 0.06);
-
-    auto f_boost = [&](double y)
-    {
-        return std::make_pair(f(y), df(y));
-    };
-
-    boost::uintmax_t max_iter = 100;
-    const int digits = std::numeric_limits<double>::digits;
-    const double irr_boost = boost::math::tools::newton_raphson_iterate(
-        f_boost,
-        0.06,
-        0.0,
-        1.0,
-        digits,
-        max_iter);
-
-    BOOST_TEST(irr_newton == irr_boost, boost::test_tools::tolerance(1e-10));
-}
-
 BOOST_AUTO_TEST_CASE(bond_irr_two_year_using_bond_and_curve_classes)
 {
     using Date = boost::gregorian::date;
@@ -236,6 +263,33 @@ BOOST_AUTO_TEST_CASE(bond_irr_two_year_using_bond_and_curve_classes)
         max_iter);
 
     BOOST_TEST(irr_bond == irr_boost, boost::test_tools::tolerance(1e-10));
+}
+
+BOOST_AUTO_TEST_CASE(bootstrap_curve_from_deposit_and_swaps)
+{
+    using Date = boost::gregorian::date;
+
+    // Same semiannual schedule used in the course examples (dates already business-day adjusted).
+    const Date val = parse_ddmmyy("01/04/16");
+    const Date d6m = parse_ddmmyy("03/10/16");
+    const Date d12m = parse_ddmmyy("03/04/17");
+    const Date d18m = parse_ddmmyy("02/10/17");
+    const Date d24m = parse_ddmmyy("02/04/18");
+
+    Bootstrapping::InstrumentsMapType instruments;
+    instruments.emplace(d6m, std::make_shared<Deposit>(val, d6m, 0.05));
+    instruments.emplace(d12m, std::make_shared<Swap>(d6m, d12m, 0.055, 2));
+    instruments.emplace(d18m, std::make_shared<Swap>(d12m, d18m, 0.06, 2));
+    instruments.emplace(d24m, std::make_shared<Swap>(d18m, d24m, 0.064, 2));
+
+    Bootstrapping bs;
+    const auto curve = bs(instruments);
+
+    // Expected values with Act/360 accruals and the sequential bootstrap.
+    BOOST_TEST(curve.at(d6m) == 0.974949221394719, boost::test_tools::tolerance(1e-12));
+    BOOST_TEST(curve.at(d12m) == 0.9461362981333172, boost::test_tools::tolerance(1e-12));
+    BOOST_TEST(curve.at(d18m) == 0.9135292118702222, boost::test_tools::tolerance(1e-12));
+    BOOST_TEST(curve.at(d24m) == 0.8793138059619998, boost::test_tools::tolerance(1e-12));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
