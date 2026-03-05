@@ -7,31 +7,7 @@
 
 #include <cmath>
 #include <memory>
-#include <sstream>
 #include <vector>
-
-namespace
-{
-boost::gregorian::date parse_ddmmyy(const std::string& text)
-{
-    int day = 0;
-    int month = 0;
-    int year = 0;
-    char slash_1 = '\0';
-    char slash_2 = '\0';
-
-    std::istringstream in(text);
-    in >> day >> slash_1 >> month >> slash_2 >> year;
-
-    if (!in || slash_1 != '/' || slash_2 != '/')
-    {
-        throw std::runtime_error("Invalid date format, expected dd/mm/yy");
-    }
-
-    year += (year < 100) ? 2000 : 0;
-    return boost::gregorian::date(year, month, day);
-}
-}
 
 BOOST_AUTO_TEST_SUITE(market_suite)
 
@@ -39,12 +15,12 @@ BOOST_AUTO_TEST_CASE(curve_discount_and_forward_rates)
 {
     using Date = boost::gregorian::date;
 
-    const Date val = parse_ddmmyy("01/04/16");
+    const Date val = boost::gregorian::from_string("2016/04/01");
     const std::vector<Date> pillars = {
-        parse_ddmmyy("03/10/16"),
-        parse_ddmmyy("03/04/17"),
-        parse_ddmmyy("02/10/17"),
-        parse_ddmmyy("02/04/18")
+        boost::gregorian::from_string("2016/10/03"),
+        boost::gregorian::from_string("2017/04/03"),
+        boost::gregorian::from_string("2017/10/02"),
+        boost::gregorian::from_string("2018/04/02")
     };
 
     const double euribor6m_fix = 0.048; // 4.8% nominal annual, m=2

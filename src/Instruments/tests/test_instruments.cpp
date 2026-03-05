@@ -17,31 +17,7 @@
 #include <cmath>
 #include <limits>
 #include <memory>
-#include <sstream>
 #include <vector>
-
-namespace
-{
-boost::gregorian::date parse_ddmmyy(const std::string& text)
-{
-    int day = 0;
-    int month = 0;
-    int year = 0;
-    char slash_1 = '\0';
-    char slash_2 = '\0';
-
-    std::istringstream in(text);
-    in >> day >> slash_1 >> month >> slash_2 >> year;
-
-    if (!in || slash_1 != '/' || slash_2 != '/')
-    {
-        throw std::runtime_error("Invalid date format, expected dd/mm/yy");
-    }
-
-    year += (year < 100) ? 2000 : 0;
-    return boost::gregorian::date(year, month, day);
-}
-}
 
 BOOST_AUTO_TEST_SUITE(instruments_suite)
 
@@ -49,8 +25,8 @@ BOOST_AUTO_TEST_CASE(flow_amounts_for_fixed_and_floating_legs)
 {
     using Date = boost::gregorian::date;
 
-    const Date val = parse_ddmmyy("01/04/16");
-    const Date d6m = parse_ddmmyy("03/10/16");
+    const Date val = boost::gregorian::from_string("2016/04/01");
+    const Date d6m = boost::gregorian::from_string("2016/10/03");
 
     auto curve = std::make_shared<ZeroCouponCurve>(val, std::vector<Date>{d6m}, std::vector<double>{0.05});
     auto index = std::make_shared<Index>(curve, 2);
@@ -91,8 +67,8 @@ BOOST_AUTO_TEST_CASE(discounting_of_leg_cashflows)
 {
     using Date = boost::gregorian::date;
 
-    const Date val = parse_ddmmyy("01/04/16");
-    const Date d6m = parse_ddmmyy("03/10/16");
+    const Date val = boost::gregorian::from_string("2016/04/01");
+    const Date d6m = boost::gregorian::from_string("2016/10/03");
 
     auto curve = std::make_shared<ZeroCouponCurve>(val, std::vector<Date>{d6m}, std::vector<double>{0.05});
     auto index = std::make_shared<Index>(curve, 2);
@@ -128,12 +104,12 @@ BOOST_AUTO_TEST_CASE(swap_example_from_slides)
 {
     using Date = boost::gregorian::date;
 
-    const Date val = parse_ddmmyy("01/04/16");
+    const Date val = boost::gregorian::from_string("2016/04/01");
     const std::vector<Date> pay_dates = {
-        parse_ddmmyy("03/10/16"),
-        parse_ddmmyy("03/04/17"),
-        parse_ddmmyy("02/10/17"),
-        parse_ddmmyy("02/04/18")
+        boost::gregorian::from_string("2016/10/03"),
+        boost::gregorian::from_string("2017/04/03"),
+        boost::gregorian::from_string("2017/10/02"),
+        boost::gregorian::from_string("2018/04/02")
     };
 
     // Build periods as [start,end] with payment at end.
@@ -189,9 +165,9 @@ BOOST_AUTO_TEST_CASE(bond_irr_roundtrip)
 {
     using Date = boost::gregorian::date;
 
-    const Date val = parse_ddmmyy("01/01/25");
+    const Date val = boost::gregorian::from_string("2025/01/01");
     const std::vector<Date> pillars = {
-        parse_ddmmyy("01/01/26")
+        boost::gregorian::from_string("2026/01/01")
     };
     const std::vector<double> zc = {0.05};
 
@@ -213,11 +189,11 @@ BOOST_AUTO_TEST_CASE(bond_irr_two_year_using_bond_and_curve_classes)
 {
     using Date = boost::gregorian::date;
 
-    const Date val = parse_ddmmyy("01/01/25");
-    const Date d1 = parse_ddmmyy("01/07/25");
-    const Date d2 = parse_ddmmyy("01/01/26");
-    const Date d3 = parse_ddmmyy("01/07/26");
-    const Date d4 = parse_ddmmyy("01/01/27");
+    const Date val = boost::gregorian::from_string("2025/01/01");
+    const Date d1 = boost::gregorian::from_string("2025/07/01");
+    const Date d2 = boost::gregorian::from_string("2026/01/01");
+    const Date d3 = boost::gregorian::from_string("2026/07/01");
+    const Date d4 = boost::gregorian::from_string("2027/01/01");
 
     const std::vector<Date> pillars = {d1, d2, d3, d4};
     const std::vector<double> zc = {0.050, 0.058, 0.064, 0.068};
@@ -270,11 +246,11 @@ BOOST_AUTO_TEST_CASE(bootstrap_curve_from_deposit_and_swaps)
     using Date = boost::gregorian::date;
 
     // Same semiannual schedule used in the course examples (dates already business-day adjusted).
-    const Date val = parse_ddmmyy("01/04/16");
-    const Date d6m = parse_ddmmyy("03/10/16");
-    const Date d12m = parse_ddmmyy("03/04/17");
-    const Date d18m = parse_ddmmyy("02/10/17");
-    const Date d24m = parse_ddmmyy("02/04/18");
+    const Date val = boost::gregorian::from_string("2016/04/01");
+    const Date d6m = boost::gregorian::from_string("2016/10/03");
+    const Date d12m = boost::gregorian::from_string("2017/04/03");
+    const Date d18m = boost::gregorian::from_string("2017/10/02");
+    const Date d24m = boost::gregorian::from_string("2018/04/02");
 
     Bootstrapping::InstrumentsMapType instruments;
     instruments.emplace(d6m, std::make_shared<Deposit>(val, d6m, 0.05));
