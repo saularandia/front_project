@@ -6,10 +6,9 @@
 
 #include <boost/date_time/gregorian/gregorian.hpp>
 
-// Simple money-market deposit quote used for discount-factor bootstrapping.
-// Market quote is a simple interest rate R over [start,end] with year fraction b(start,end).
+// Simple interest rate R over [start,end] with year fraction b(start,end).
 // Discount factor:
-//   DF(0,end) = 1 / (1 + R * b(start,end)).
+// DF(0,end) = 1 / (1 + R * b(start,end)).
 class Deposit : public IPricer
 {
 public:

@@ -14,7 +14,7 @@ public:
     using Date = boost::gregorian::date;
 
     Swap(std::unique_ptr<Leg> receiver, std::unique_ptr<Leg> payer);
-    // Bootstrap quote constructor: [start,maturity] represents the accrual interval
+    // Bootstrap constructor: [start,maturity] represents the accrual interval
     // of the last fixed period used to solve DF(0,maturity).
     Swap(Date start, Date maturity, double fixed_rate, int payments_per_year = 2, Actual_360 dcc = Actual_360{});
 

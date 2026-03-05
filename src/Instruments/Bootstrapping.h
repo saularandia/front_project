@@ -8,8 +8,6 @@
 #include <map>
 #include <memory>
 
-// Sequential (self-contained) bootstrap of discount factors from market instruments.
-// Instruments must be provided in increasing maturity order (std::map does this for us).
 class Bootstrapping
 {
 public:
@@ -19,7 +17,6 @@ public:
 
     Bootstrapping() = default;
 
-    // Returns the calibrated discount factors DF(0, maturity).
     DiscountCurveType operator()(const InstrumentsMapType& instruments) const;
 
     virtual ~Bootstrapping() = default;

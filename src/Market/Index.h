@@ -20,7 +20,7 @@ public:
     // Convert the forward continuous rate to an m-times compounded nominal annual rate.
     double forward_rate_nominal_m(const Date& start, const Date& end) const;
 
-    // Convenience name matching the diagram.
+    // Return the forward rate between start and end, converted to nominal m-times compounded annual rate.
     double get_rate(const Date& start, const Date& end) const { return forward_rate_nominal_m(start, end); }
 
     static double continuous_from_nominal_m(double Rm, int m);
