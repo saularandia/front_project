@@ -65,7 +65,7 @@ if (!enhancementSource.includes(horizontalBefore)) throw new Error('No se locali
 enhancementSource = enhancementSource.replace(horizontalBefore, horizontalAfter);
 enhancementSource = enhancementSource.replaceAll('5.2.8-clean', VERSION);
 
-if (enhancementSource.includes(eagerDragClass.trim())) throw new Error('El fondo del gesto todavía se activa al tocar sin deslizar.');
+if (enhancementSource.includes(eagerDragClass)) throw new Error('El fondo del gesto todavía se activa al tocar sin deslizar.');
 if (!enhancementSource.includes("activeSwipe.item.closest('.vjt-swipe-shell')?.classList.add('dragging')")) {
   throw new Error('El fondo del gesto no se activa tras confirmar el movimiento horizontal.');
 }
