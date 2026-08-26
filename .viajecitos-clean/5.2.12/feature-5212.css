@@ -1,0 +1,74 @@
+/* 5.2.12-performance: identidad de plataformas, selección de miembros y renderizado eficiente. */
+.vjt-platform-icon.vjt-platform-spotify {
+  background: #191414;
+  color: #1ed760;
+  box-shadow: 0 7px 16px rgba(25, 20, 20, .22);
+}
+.vjt-platform-icon.vjt-platform-spotify svg {
+  width: 28px;
+  height: 28px;
+  overflow: visible;
+}
+.vjt-link-preview .vjt-platform-icon.vjt-platform-spotify svg {
+  width: 24px;
+  height: 24px;
+}
+.vjt-trip-select-all-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 10px;
+}
+.vjt-trip-select-all {
+  margin-left: auto;
+}
+
+/* El navegador limita el área de repintado y solo crea una capa durante el gesto. */
+.vjt-swipe-shell {
+  contain: paint;
+  isolation: isolate;
+  touch-action: pan-y;
+}
+.vjt-swipe-shell.dragging > .editable-card,
+.vjt-swipe-shell.commit-left > .editable-card,
+.vjt-swipe-shell.commit-right > .editable-card {
+  will-change: transform;
+  backface-visibility: hidden;
+}
+.vjt-platform-icon,
+.packing-progress,
+.poll-progress {
+  contain: layout paint style;
+}
+
+/* Evita maquetar y pintar tarjetas muy alejadas del área visible. */
+@supports (content-visibility: auto) {
+  .cards > .trip-card,
+  .stack > .vjt-swipe-shell,
+  .packing-items > .vjt-swipe-shell,
+  .stack > .poll {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 144px;
+  }
+  .vjt-swipe-shell:has(> .editing-item),
+  .editing-item {
+    content-visibility: visible;
+  }
+}
+
+@media (max-width: 520px) {
+  .vjt-trip-select-all-row {
+    justify-content: stretch;
+  }
+  .vjt-trip-select-all {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vjt-swipe-shell > .editable-card,
+  .vjt-swipe-shell > .vjt-swipe-actions {
+    transition-duration: .01ms !important;
+  }
+}
