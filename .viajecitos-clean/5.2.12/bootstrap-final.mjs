@@ -24,6 +24,10 @@ const FILES = {
     url: `${ROOT}/5.2.12/performance-patch.mjs`,
     gitSha: '69fa4c1055e4c7b64bd2092b5b1347158a3a255c',
   },
+  lifecycle: {
+    url: `${ROOT}/5.2.12/lifecycle-fix.mjs`,
+    gitSha: 'c47db2a401d6083b16f180bc5d7c6337a98d5da7',
+  },
 };
 
 function gitBlobSha(content) {
@@ -40,7 +44,7 @@ async function fetchVerified(name, spec) {
   return content;
 }
 
-const [baseSource, runtimeSource, performanceCss, performanceTest, patchSource] = await Promise.all(
+const [baseSource, runtimeSource, performanceCss, performanceTest, patchSource, lifecycleSource] = await Promise.all(
   Object.entries(FILES).map(([name, spec]) => fetchVerified(name, spec)),
 );
 
@@ -48,12 +52,14 @@ if (!runtimeSource.includes(`const RELEASE = '${RELEASE}'`)) throw new Error('La
 if (runtimeSource.includes('new MutationObserver')) throw new Error('La extensión intenta instalar un observador duplicado.');
 if (!runtimeSource.includes('shared-batched-observer') || !runtimeSource.includes('data-vjt-trip-select-all')) throw new Error('Faltan el observador compartido o la selección global de miembros.');
 if (!performanceCss.includes('content-visibility: auto') || !performanceCss.includes('will-change: transform')) throw new Error('Faltan las optimizaciones de renderizado y gestos.');
-if (!patchSource.includes('patchPayloadBridge') || !patchSource.includes('navigationPreload') || !patchSource.includes("minify: true")) throw new Error('La canalización de rendimiento está incompleta.');
+if (!patchSource.includes('patchPayloadBridge') || !patchSource.includes('navigationPreload') || !patchSource.includes('minify: true')) throw new Error('La canalización de rendimiento está incompleta.');
+if (!lifecycleSource.includes('patchLifecycleSafety') || !lifecycleSource.includes('pagehide')) throw new Error('Falta la protección del ciclo de vida del observador.');
 
 await writeFile('feature-5212.mjs', runtimeSource);
 await writeFile('feature-5212.css', performanceCss);
 await writeFile('feature-5212-test.mjs', performanceTest);
 await writeFile('performance-patch.mjs', patchSource);
+await writeFile('lifecycle-fix.mjs', lifecycleSource);
 
 let patched = baseSource;
 const replaceOnce = (before, after, label) => {
@@ -71,10 +77,12 @@ replaceOnce(
 replaceOnce(
   "await writeFile('enhancements.js', enhancementSource);",
   `const { patchEnhancementSource, patchEnhancementCss, patchBuildSource } = await import('./performance-patch.mjs');
-enhancementSource = patchEnhancementSource(enhancementSource, VERSION);
+const { patchLifecycleSafety } = await import('./lifecycle-fix.mjs');
+enhancementSource = patchLifecycleSafety(patchEnhancementSource(enhancementSource, VERSION));
 enhancementSource += \`\\n\\n\${await readFile('feature-5212.mjs', 'utf8')}\\n\`;
 const combinedObserverCount = (enhancementSource.match(/new MutationObserver\\(/g) || []).length;
 if (combinedObserverCount !== 1) throw new Error(\`La aplicación final debe tener un solo MutationObserver; tiene \${combinedObserverCount}.\`);
+if (!enhancementSource.includes("globalThis.addEventListener?.('pagehide'")) throw new Error('La aplicación no desconecta el observador al abandonar la página.');
 await writeFile('enhancements.js', enhancementSource);`,
   'la escritura del JavaScript optimizado',
 );
@@ -101,6 +109,7 @@ if (performanceTestRun.status !== 0) throw new Error('Han fallado las pruebas ai
 console.log('VJT_PERFORMANCE_PIPELINE_READY', JSON.stringify({
   version: VERSION,
   singleObserver: true,
+  lifecycleSafeObserver: true,
   fetchDoubleParse: false,
   swipeRaf: true,
   expenseRaf: true,
@@ -117,7 +126,7 @@ await import('./build.mjs');`,
 );
 
 if (!patched.includes(`const VERSION = '${RELEASE}';`)) throw new Error('No se ha actualizado la versión final.');
-if (!patched.includes('patchEnhancementSource') || !patched.includes('patchBuildSource')) throw new Error('No se ha conectado la canalización de optimización.');
+if (!patched.includes('patchEnhancementSource') || !patched.includes('patchBuildSource') || !patched.includes('patchLifecycleSafety')) throw new Error('No se ha conectado la canalización completa de optimización.');
 if (!patched.includes('feature-5212-test.mjs')) throw new Error('No se han incorporado las pruebas de rendimiento.');
 await writeFile('bootstrap-5212-patched.mjs', patched);
 await import('./bootstrap-5212-patched.mjs');
