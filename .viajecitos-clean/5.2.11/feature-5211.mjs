@@ -84,7 +84,7 @@
 
   document.addEventListener('change', (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement)) return;
+    if (!target || target.nodeType !== 1 || target.tagName !== 'INPUT') return;
 
     if (target.matches('[data-vjt-trip-select-all]')) {
       const fieldset = target.closest('.trip-participants-fieldset');
